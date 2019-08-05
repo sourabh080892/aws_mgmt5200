@@ -113,14 +113,107 @@ summary(full_dta)
 
 
 ```{r}
-full_dta <- full_dta %>% mutate(churn = ifelse(Visualize =="No" & Alert == "No" & Report =="No", "Yes", "No"))
+
+full_dta <- full_dta %>% 
+  mutate(tools_count = ifelse(Visualize=="Yes" & Alert == "No" & Report =="No", 1,
+                              ifelse(Visualize=="Yes" & Alert == "Yes" & Report =="No",2,
+                                     ifelse(Visualize=="Yes" & Alert == "No" & Report =="Yes",2,
+                                      ifelse(Visualize=="Yes" & Alert == "Yes" & Report =="Yes",3,
+                                              ifelse(Visualize=="No" & Alert == "Yes" & Report =="No",1,
+                                                      ifelse(Visualize=="No" & Alert == "Yes" & Report =="Yes",2,
+                                                              ifelse(Visualize=="No" & Alert == "No" & Report =="No",0,
+                                                                     ifelse(Visualize=="No" & Alert == "No" & Report =="Yes",1,
+                                                                            ifelse(Visualize=="No" & Alert == "Yes" & Report =="No",1))))))))))
+
+  
+
+write.csv(full_dta, file= "full_dta.csv")
 ```
 
 Basic EDA
 ============================================
 
 ```{r}
+full_dta <- read.csv("full_dta.csv")
 str(full_dta)
+```
+
+```{r}
+adoption_april <- filter(adoption, month== '04')
+adoption_may <- filter(adoption, month== '05')
+adoption_june <- filter(adoption, month== '06')
+```
+
+```{r}
+df<-merge(x=adoption_april,y=adoption_may,by="Customer_ID") #43085
+df2 <- merge(x=adoption_may,y=adoption_june,by="Customer_ID") #43893
+growth_rate_may = (47272-43085)/45604
+churn_rate_may = (45604 - 43085) /45604
+
+growth_rate_june = (47149-43893)/47272
+churn_rate_june = (47272 - 43893) /47272
+
+```
+
+```{r}
+summary(full_dta)
+cluster <- read.csv("AWSclusteredata.csv")
+
+```
+
+```{r}
+cluster <- cluster %>%
+  select(Customer_ID, CLUSTER) %>%
+  group_by(Customer_ID) %>%
+  distinct()
+```
+
+```{r}
+df3 <- full_dta %>%
+  select(Customer_ID, month, tools_count) %>%
+  spread(key = month,
+         value = tools_count,
+         fill = 0,
+         sep = "") %>%
+  mutate(may_diff = month5-month4,
+         june_diff = month6-month5) %>%
+  mutate(may_diff = ifelse(may_diff < 0, -1,
+                           ifelse(may_diff > 0, 1, 0))) %>%
+  mutate(june_diff = ifelse(june_diff < 0, -1,
+                           ifelse(june_diff > 0, 1, 0)))
+
+df_may <- df3 %>%
+   select(Customer_ID, may_diff) %>%
+    spread(key = may_diff,
+         value = may_diff,
+         fill = 0,
+         sep = "") 
+
+df_june <- df3 %>%
+   select(Customer_ID, june_diff) %>%
+    spread(key = june_diff,
+         value = june_diff,
+         fill = 0,
+         sep = "") 
+
+df_diff <- df_may %>% 
+  left_join(df_june, by = c("Customer_ID")) %>%
+  select(-may_diff0, -june_diff0) %>%
+  left_join(cluster, by = ("Customer_ID"))
+
+write.csv(df_diff, file= "increase_decrease_cluster.csv")
+
+
+df3 <- df3 %>% left_join(cluster, by = c("Customer_ID"))
+
+  
+
+df4 <- full_cluster %>%
+  select(Customer_ID, month, CLUSTER) %>%
+  spread(key = month,
+         value = CLUSTER,
+         sep = ".") 
+
 ```
 
 
@@ -152,25 +245,4 @@ grid.arrange(p5, p6, p7,ncol=2)
 
 
 
-
-Logistic Regression
-============================================
-
-```{r}
-training <- full_dta[full_dta$month == "04" | full_dta$month == "05",]
-testing <- full_dta[full_dta$month == "06",]
-dim(training); dim(testing)
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
-
-```{r}
-
-```
 
